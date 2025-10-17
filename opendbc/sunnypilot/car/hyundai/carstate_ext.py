@@ -24,13 +24,15 @@ class CarStateExt:
     self.leftLaneQuality = 0.0
     self.rightLaneQuality = 0.0
 
-  def update_speed_limit(self, cp, cp_cam) -> float:
+  def update_speed_limit(self, cp, cp_cam) -> [float, bool]:
     speed_limit = 0
+    school_zone = False
 
     if self.CP.flags & HyundaiFlags.CANFD:
       if self.CP_SP.flags & HyundaiFlagsSP.SPEED_LIMIT_AVAILABLE:
         bus = cp if self.CP.flags & HyundaiFlags.CANFD_LKA_STEERING else cp_cam
         speed_limit = bus.vl["FR_CMR_02_100ms"]["ISLW_SpdCluMainDis"]
+        school_zone = bus.vl["FR_CMR_02_100ms"]["ISLA_SchoolZone"] == 1
     else:
       nav, cam = 0, 0
       if self.CP_SP.flags & HyundaiFlagsSP.SPEED_LIMIT_AVAILABLE:
@@ -43,7 +45,7 @@ class CarStateExt:
     if speed_limit in (0, 255):
       speed_limit = 0
 
-    return speed_limit
+    return speed_limit, school_zone
 
   def update(self, ret: structs.CarState, ret_sp: structs.CarStateSP, can_parsers: dict[StrEnum, CANParser], speed_conv: float) -> None:
     cp = can_parsers[Bus.pt]
@@ -78,7 +80,9 @@ class CarStateExt:
         ret.stockFcw = aeb_warning and not aeb_braking
         ret.stockAeb = aeb_warning and aeb_braking
 
-    ret_sp.speedLimit = self.update_speed_limit(cp, cp_cam) * speed_conv
+    speedLimit, schoolZone = self.update_speed_limit(cp, cp_cam)
+    ret_sp.speedLimit = speedLimit * speed_conv
+    ret_sp.schoolZone = schoolZone
 
   def update_canfd_ext(self, ret: structs.CarState, ret_sp: structs.CarStateSP, can_parsers: dict[StrEnum, CANParser],
                        speed_factor: float) -> None:
@@ -87,7 +91,9 @@ class CarStateExt:
 
     self.aBasis = cp.vl["TCS"]["aBasis"]
 
-    ret_sp.speedLimit = self.update_speed_limit(cp, cp_cam) * speed_factor
+    speedLimit, schoolZone = self.update_speed_limit(cp, cp_cam)
+    ret_sp.speedLimit = speedLimit * speed_factor
+    ret_sp.schoolZone = schoolZone
 
     # if self.CP.flags & HyundaiFlags.CANFD_CAMERA_SCC:
     #   self.leftLanePosition = cp_cam.vl["FR_CMR_03_50ms"]["Info_LftLnPosVal"]
