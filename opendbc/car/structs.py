@@ -170,4 +170,3 @@ class CarControlSP:
 @auto_dataclass
 class CarStateSP:
   speedLimit: float = auto_field()
-  schoolZone: bool = auto_field()
