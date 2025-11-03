@@ -17,7 +17,6 @@ from opendbc.sunnypilot.car.hyundai.values import HyundaiFlagsSP
 LongCtrlState = structs.CarControl.Actuators.LongControlState
 VisualAlert = structs.CarControl.HUDControl.VisualAlert
 
-COMFORT_BAND_VAL = 0.01
 
 DYNAMIC_LOWER_JERK_BP = [-2.0, -1.5, -1.0, -0.25, -0.1, -0.025, -0.01, -0.005]
 DYNAMIC_LOWER_JERK_V  = [3.3,  2.5,  2.0,   1.9,  1.8,   1.65,  1.15,    0.5]
@@ -252,14 +251,19 @@ class LongitudinalController:
 
     self.accel_last = self.actual_accel
 
-  def calculate_comfort_band(self, CC: structs.CarControl) -> None:
-    if not self.enabled or self.CP.radarUnavailable or not CC.longActive:
+  def calculate_comfort_band(self, CC: structs.CarControl, CS: CarStateBase) -> None:
+    if not self.enabled or not CC.longActive:
       self.comfort_band_upper = 0.0
       self.comfort_band_lower = 0.0
       return
 
-    self.comfort_band_upper = COMFORT_BAND_VAL
-    self.comfort_band_lower = COMFORT_BAND_VAL
+    accel = CS.out.aEgo
+    accel_vals = [0.0, 0.3, 0.6, 0.9, 1.2, 1.5]
+    decel_vals = [-3.0, -2.0, -1.5, -1.0, -0.5, -0.05]
+    comfort_band_vals = [0.0, 0.02, 0.04, 0.06, 0.08, 0.10]
+
+    self.comfort_band_upper = float(np.interp(accel, accel_vals, comfort_band_vals))
+    self.comfort_band_lower = float(np.interp(accel, decel_vals, comfort_band_vals[::-1]))
 
   def get_tuning_state(self) -> None:
     """Update the tuning state object with current control values.
@@ -320,7 +324,7 @@ class LongitudinalController:
     else:
       self.calculate_jerk(CC, CS, long_control_state)
       self.calculate_accel(CC)
-      self.calculate_comfort_band(CC)
+      self.calculate_comfort_band(CC, CS)
 
     self.get_tuning_state()
     self.long_control_state_last = long_control_state
