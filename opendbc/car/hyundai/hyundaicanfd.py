@@ -70,6 +70,13 @@ def create_steering_messages(packer, CP, CAN, enabled, lat_active, apply_torque,
   else:
     ret.append(packer.make_can_msg("LFA", CAN.ECAN, values))
 
+  values = {
+    "ADAS_ActvACILvl2Sta": 2 if lat_active else 1,
+    "ADAS_StrAnglReqVal": apply_angle,
+    "ADAS_ACIAnglTqRedcGainVal": apply_torque if lat_active else 0
+  }
+  ret.append(packer.make_can_msg("LFA_ALT", CAN.ECAN, values))
+
   return ret
 
 
